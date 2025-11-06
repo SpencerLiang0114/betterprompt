@@ -1,0 +1,9 @@
+{
+  "name": "better-prompt",
+  "version": "1.0.0",
+  "description": "AI-powered prompt improvement tool",
+  "main": "index.js",
+  "dependencies": {
+    "openai": "^4.77.0"
+  }
+}
