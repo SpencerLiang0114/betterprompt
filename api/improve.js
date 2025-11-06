@@ -1,32 +1,53 @@
 // api/improve.js
+const ALLOW_ORIGIN = process.env.ALLOW_ORIGIN || '*'; // change '*' to your site domain for security
+
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Use POST' });
+  // ✅ Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', ALLOW_ORIGIN);
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'POST') {
+    res.setHeader('Access-Control-Allow-Origin', ALLOW_ORIGIN);
+    return res.status(405).json({ error: 'Use POST' });
+  }
 
   try {
+    // ✅ Read JSON body from request
     const body = await readJson(req);
     const { fields } = body || {};
-    if (!fields) return res.status(400).json({ error: 'Missing fields' });
+    if (!fields) {
+      res.setHeader('Access-Control-Allow-Origin', ALLOW_ORIGIN);
+      return res.status(400).json({ error: 'Missing fields' });
+    }
 
-    // Build your instruction (you can reuse your buildPrompt result as "draft")
+    // ✅ Build draft prompt from user inputs
     const draft = buildPromptFromFields(fields);
 
-    // Call OpenAI (Chat Completions). Install: `npm i openai`
-    // IMPORTANT: Set OPENAI_API_KEY in your Vercel project settings.
+    // ✅ Call OpenAI API
     const { OpenAI } = await import('openai');
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    if (!process.env.OPENAI_API_KEY) {
+      res.setHeader('Access-Control-Allow-Origin', ALLOW_ORIGIN);
+      return res.status(500).json({ error: 'Missing OPENAI_API_KEY on server' });
+    }
 
     const system = `You are a prompt engineer. Rewrite the user's draft prompt into a
 clear, concise, high-impact prompt that:
 - states role and exact task
-- includes only essential context/constraints
+- includes only essential context and constraints
 - specifies format/tone/length if provided
-- avoids revealing chain-of-thought
+- avoids revealing private reasoning
 Return only the improved prompt.`;
 
     const user = `Draft prompt to improve:\n\n${draft}`;
 
     const resp = await client.chat.completions.create({
-      model: 'gpt-4o-mini', // pick any current text-capable model
+      model: 'gpt-4o-mini',  // can change to gpt-4o if you have access
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: user }
@@ -35,9 +56,13 @@ Return only the improved prompt.`;
     });
 
     const improved = resp.choices?.[0]?.message?.content?.trim() || '';
+
+    res.setHeader('Access-Control-Allow-Origin', ALLOW_ORIGIN);
     return res.status(200).json({ improved });
+
   } catch (err) {
     console.error(err);
+    res.setHeader('Access-Control-Allow-Origin', ALLOW_ORIGIN);
     return res.status(500).json({ error: 'Server error' });
   }
 }
@@ -56,7 +81,7 @@ function buildPromptFromFields(v) {
     req.push(...v.constraints.split(/\n+/).map(s => s.replace(/^•\s*/, '').trim()).filter(Boolean));
   }
   if (req.length) lines.push(`\n# Requirements\n- ${req.join('\n- ')}`);
-  lines.push(`\n# Guidance\n- Ask up to 3 clarifying questions only if needed.\n- Give brief justifications, no private chain-of-thought.\n- State assumptions first if you must make any.`);
+  lines.push(`\n# Guidance\n- Ask up to 3 clarifying questions only if needed.\n- Give brief justifications, no private reasoning.\n- State assumptions first if you must make any.`);
   if (v.examples) lines.push(`\n# Examples\n${v.examples}`);
   return lines.join('\n');
 }
