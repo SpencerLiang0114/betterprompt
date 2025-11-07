@@ -47,7 +47,7 @@ Return only the improved prompt.`;
     const user = `Draft prompt to improve:\n\n${draft}`;
 
     const resp = await client.chat.completions.create({
-      model: 'gpt-4o-nano',  // can change to gpt-4o if you have access
+      model: 'gpt-5-nano',  // can change to gpt-4o if you have access
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: user }
