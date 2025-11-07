@@ -51,8 +51,7 @@ Return only the improved prompt.`;
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: user }
-      ],
-      temperature: 0.4
+      ]
     });
 
     const improved = resp.choices?.[0]?.message?.content?.trim() || '';
