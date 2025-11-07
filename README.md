@@ -36,3 +36,48 @@ cd better-prompt
 # 2. (Optional) serve locally
 python3 -m http.server 8080
 # then open http://localhost:8080
+
+```
+
+## Sequence Diagram
+sequenceDiagram
+    autonumber
+
+    actor U as User
+    participant F as Browser (Better Prompt UI)
+    participant API as /api/improve (Serverless)
+    participant OA as OpenAI API
+
+    %% --- Live typing preview (local, free) ---
+    U->>F: Type into fields (goal/context/persona/…)
+    Note right of F: Debounced input handler
+    F->>F: buildPrompt() → local draft
+    F-->>U: Show local draft in Output
+
+    %% --- Improve (AI call) ---
+    U->>F: Click "Improve Prompt"
+    F->>F: preview() (optimistic local draft)
+    alt Cross-origin (e.g., GitHub Pages → Vercel)
+        F->>API: OPTIONS /api/improve (CORS preflight)
+        API-->>F: 200 + CORS headers
+    end
+    F->>API: POST /api/improve { fields }
+
+    %% --- Server work ---
+    API->>API: readJson(req)
+    API->>API: buildPromptFromFields(fields) → draft
+    API->>API: Validate OPENAI_API_KEY
+    API->>OA: chat.completions.create(system + user(draft))
+    OA-->>API: 200 { improved }
+
+    %% --- Response to client ---
+    API-->>F: 200 { improved } (+ CORS if needed)
+    F->>F: Replace Output with improved prompt
+    F-->>U: Show AI-revised prompt
+
+    %% --- Error / fallback path ---
+    opt Error (network, missing key, 500, etc.)
+        API-->>F: Error JSON
+        F->>F: Keep local draft; toast("AI service error")
+        F-->>U: Local draft remains visible
+    end
