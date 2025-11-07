@@ -141,10 +141,14 @@
     });
 
     const out = document.getElementById('output');
+    const improveBtn = document.getElementById('improveBtn');
     const fields = ['goal','context','persona','format','tone','length','constraints','examples'];
 
-    function buildPrompt(){
-      const v = Object.fromEntries(fields.map(id=>[id, document.getElementById(id).value.trim()]));
+    function readFields(){
+      return Object.fromEntries(fields.map(id=>[id, document.getElementById(id).value.trim()]));
+    }
+
+    function buildPrompt(v = readFields()){
       const lines = [];
       if(v.persona) lines.push(`# Role\nYou are ${v.persona}.`);
       if(v.goal){
@@ -188,12 +192,50 @@
       return lines.join('\n');
     }
 
-    function improve(){
-      const text = buildPrompt();
-      out.textContent = text || 'Fill in the inputs on the left, then click “Improve Prompt”.';
+    async function improve(){
+      const values = readFields();
+      const hasInput = Object.values(values).some(Boolean);
+      if(!hasInput){
+        out.textContent = 'Add some details on the left before improving.';
+        toast('Please fill out at least one input.');
+        return;
+      }
+
+      const fallback = buildPrompt(values);
+      improveBtn.disabled = true;
+      improveBtn.textContent = 'Improving...';
+      out.textContent = 'Calling OpenAI...';
+
+      try{
+        const resp = await fetch('/api/improve',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({ fields: values })
+        });
+
+        if(!resp.ok){
+          throw new Error(`Request failed: ${resp.status}`);
+        }
+
+        const data = await resp.json();
+        const text = data?.improved?.trim();
+        if(text){
+          out.textContent = text;
+        }else{
+          out.textContent = fallback;
+          toast('AI returned an empty response; showing local draft.');
+        }
+      }catch(err){
+        console.error('Improve error', err);
+        out.textContent = fallback;
+        toast('AI request failed; showing local draft.');
+      }finally{
+        improveBtn.disabled = false;
+        improveBtn.textContent = 'Improve Prompt';
+      }
     }
 
-    document.getElementById('improveBtn').addEventListener('click', improve);
+    improveBtn.addEventListener('click', improve);
     document.getElementById('copyBtn').addEventListener('click', async ()=>{
       const text = out.textContent.trim();
       if(!text) return;
@@ -219,13 +261,6 @@
       document.body.appendChild(t); setTimeout(()=>t.remove(),1400);
     }
 
-    // Live preview as the user types (debounced)
-    let timer; document.querySelectorAll('input, textarea, select').forEach(el=>{
-      el.addEventListener('input', ()=>{ clearTimeout(timer); timer=setTimeout(improve, 250); });
-    });
-
-    // Initial placeholder output
-    improve();
   </script>
 </body>
 </html>
