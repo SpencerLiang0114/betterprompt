@@ -23,17 +23,6 @@ It’s a lightweight web app built with pure **HTML + CSS + JavaScript** — no 
 3. The app either:
    - Builds a better prompt locally (if no API connected), or  
    - Sends your data to `/api/improve`, which calls the **OpenAI API** to rewrite it intelligently. 
-   - The prompt sent to **OpenAI API** is:
-   ```bash
-cat <<'PROMPT'
-You are a prompt engineer. Rewrite the user's draft prompt into a clear, concise, high-impact prompt that:
-- states role and exact task
-- includes only essential context and constraints
-- specifies format/tone/length if provided
-- avoids revealing private reasoning
-Return only the improved prompt.
-PROMPT
-   ``` 
 4. Copy or download the improved prompt.
 
 ---
